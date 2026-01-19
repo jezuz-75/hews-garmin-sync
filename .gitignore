@@ -1,0 +1,5 @@
+# Ignore local testing files
+__pycache__/
+*.pyc
+.env
+.garth/

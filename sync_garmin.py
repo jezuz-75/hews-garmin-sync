@@ -3,6 +3,7 @@ HEWS - Health Early Warning System
 Garmin Connect Data Sync Script
 
 Uses garminconnect library (more stable and feature-complete than garth)
+Supports date range via START_DATE and END_DATE environment variables
 """
 
 import json
@@ -21,6 +22,11 @@ except ImportError:
 def get_date_string(date: datetime) -> str:
     """Format date as YYYY-MM-DD"""
     return date.strftime("%Y-%m-%d")
+
+
+def parse_date(date_str: str) -> datetime:
+    """Parse YYYY-MM-DD string to datetime"""
+    return datetime.strptime(date_str, "%Y-%m-%d")
 
 
 def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
@@ -92,7 +98,6 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
     try:
         hrv_data = client.get_hrv_data(date_str)
         if hrv_data and "hrvSummary" in hrv_data:
-            # Try lastNightAvg first, then weeklyAvg
             health_data["hrv"] = hrv_data["hrvSummary"].get("lastNightAvg") or hrv_data["hrvSummary"].get("weeklyAvg")
             print(f"  ✓ HRV: {health_data['hrv']} ms")
     except Exception as e:
@@ -175,6 +180,10 @@ def main():
         print("ERROR: GARMIN_EMAIL and GARMIN_PASSWORD environment variables required")
         exit(1)
     
+    # Check for date range parameters
+    start_date_str = os.environ.get("START_DATE")
+    end_date_str = os.environ.get("END_DATE")
+    
     print("=" * 50)
     print("HEWS Garmin Sync (garminconnect)")
     print("=" * 50)
@@ -189,21 +198,53 @@ def main():
         print(f"✗ Login failed: {e}")
         exit(1)
     
-    # Fetch today's data
-    today = datetime.now()
-    today_data = fetch_health_data(client, today)
-    
-    # Fetch yesterday's data
-    yesterday = today - timedelta(days=1)
-    yesterday_data = fetch_health_data(client, yesterday)
-    
-    # Build output structure
-    output = {
-        "lastSync": datetime.now().isoformat(),
-        "today": today_data,
-        "yesterday": yesterday_data,
-        "history": []
-    }
+    # Determine date range
+    if start_date_str and end_date_str:
+        # Historical mode: fetch date range
+        start_date = parse_date(start_date_str)
+        end_date = parse_date(end_date_str)
+        
+        print(f"\n📅 Historical mode: {start_date_str} to {end_date_str}")
+        
+        # Fetch all dates in range
+        history = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            data = fetch_health_data(client, current_date)
+            history.append(data)
+            current_date += timedelta(days=1)
+        
+        # Build output structure
+        output = {
+            "lastSync": datetime.now().isoformat(),
+            "mode": "historical",
+            "startDate": start_date_str,
+            "endDate": end_date_str,
+            "today": None,
+            "yesterday": None,
+            "history": history
+        }
+        
+        print(f"\n✓ Fetched {len(history)} days of data")
+        
+    else:
+        # Normal mode: today and yesterday
+        print("\n📅 Normal mode: today + yesterday")
+        
+        today = datetime.now()
+        today_data = fetch_health_data(client, today)
+        
+        yesterday = today - timedelta(days=1)
+        yesterday_data = fetch_health_data(client, yesterday)
+        
+        output = {
+            "lastSync": datetime.now().isoformat(),
+            "mode": "daily",
+            "today": today_data,
+            "yesterday": yesterday_data,
+            "history": []
+        }
     
     # Save to JSON file
     output_path = Path("data/health_data.json")

@@ -5,8 +5,17 @@ on:
   schedule:
     - cron: '0 6 * * *'
   
-  # Manuell ausführbar
+  # Manuell ausführbar mit optionalen Datumsparametern
   workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'Start date (YYYY-MM-DD) - leave empty for daily sync'
+        required: false
+        type: string
+      end_date:
+        description: 'End date (YYYY-MM-DD) - leave empty for daily sync'
+        required: false
+        type: string
 
 jobs:
   sync:
@@ -30,6 +39,8 @@ jobs:
         env:
           GARMIN_EMAIL: ${{ secrets.GARMIN_EMAIL }}
           GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
         run: python sync_garmin.py
       
       - name: Commit and push data

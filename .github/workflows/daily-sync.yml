@@ -1,19 +1,21 @@
 name: Daily Garmin Sync
 
 on:
-  # Täglich um 6:00 UTC (= 7:00 MEZ / 8:00 MESZ)
+  # ⏰ Täglicher automatischer Sync um 6:10 UTC (= 7:10 MEZ / 8:10 MESZ)
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '10 6 * * *'
   
-  # Manuell ausführbar mit optionalen Datumsparametern
+  # 🔧 Manueller Trigger - zwei Optionen:
+  # 1. Leere Felder = normaler täglicher Sync (heute + gestern)
+  # 2. Daten eingeben = historischer Bulk-Import
   workflow_dispatch:
     inputs:
       start_date:
-        description: 'Start date (YYYY-MM-DD) - leave empty for daily sync'
+        description: 'Start-Datum (YYYY-MM-DD) - leer lassen für normalen Sync'
         required: false
         type: string
       end_date:
-        description: 'End date (YYYY-MM-DD) - leave empty for daily sync'
+        description: 'End-Datum (YYYY-MM-DD) - leer lassen für normalen Sync'
         required: false
         type: string
 

@@ -1,9 +1,9 @@
 name: Daily Garmin Sync
 
 on:
-  # ⏰ Täglicher automatischer Sync um 6:10 UTC (= 7:10 MEZ / 8:10 MESZ)
+  # ⏰ Täglicher automatischer Sync um 6:10 UTC (= 6:10 MEZ / 7:10 MESZ)
   schedule:
-    - cron: '10 6 * * *'
+    - cron: '10 5 * * *'
   
   # 🔧 Manueller Trigger - zwei Optionen:
   # 1. Leere Felder = normaler täglicher Sync (heute + gestern)

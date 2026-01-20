@@ -1,262 +1,54 @@
-"""
-HEWS - Health Early Warning System
-Garmin Connect Data Sync Script
+name: Daily Garmin Sync
 
-Uses garminconnect library (more stable and feature-complete than garth)
-Supports date range via START_DATE and END_DATE environment variables
-"""
+on:
+  # ⏰ Täglicher automatischer Sync um 6:10 UTC (= 7:10 MEZ / 8:10 MESZ)
+  schedule:
+    - cron: '10 6 * * *'
+  
+  # 🔧 Manueller Trigger - zwei Optionen:
+  # 1. Leere Felder = normaler täglicher Sync (heute + gestern)
+  # 2. Daten eingeben = historischer Bulk-Import
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: 'Start-Datum (YYYY-MM-DD) - leer lassen für normalen Sync'
+        required: false
+        type: string
+      end_date:
+        description: 'End-Datum (YYYY-MM-DD) - leer lassen für normalen Sync'
+        required: false
+        type: string
 
-import json
-import os
-from datetime import datetime, timedelta
-from pathlib import Path
-
-try:
-    from garminconnect import Garmin
-except ImportError:
-    print("ERROR: 'garminconnect' not installed!")
-    print("Please run: pip install garminconnect")
-    exit(1)
-
-
-def get_date_string(date: datetime) -> str:
-    """Format date as YYYY-MM-DD"""
-    return date.strftime("%Y-%m-%d")
-
-
-def parse_date(date_str: str) -> datetime:
-    """Parse YYYY-MM-DD string to datetime"""
-    return datetime.strptime(date_str, "%Y-%m-%d")
-
-
-def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
-    """Fetch all health data for a specific date"""
-    date_str = get_date_string(target_date)
+jobs:
+  sync:
+    runs-on: ubuntu-latest
     
-    print(f"Fetching health data for {date_str}...")
-    
-    health_data = {
-        "date": date_str,
-        "source": "garmin",
-        "fetchedAt": datetime.now().isoformat(),
-        
-        # Vital signs
-        "hrv": None,
-        "rhr": None,
-        "stressAvg": None,
-        "respiration": None,
-        
-        # Sleep
-        "sleepDuration": None,
-        "sleepDeep": None,
-        "sleepLight": None,
-        "sleepRem": None,
-        "sleepAwake": None,
-        "sleepScore": None,
-        "sleepInterruptions": None,
-        
-        # Activity
-        "steps": None,
-        "floors": None,
-        "intensityMinutes": None,
-        "intensityMinutesModerate": None,
-        "intensityMinutesVigorous": None,
-        "calories": None,
-        "activeCalories": None,
-        
-        # Body composition
-        "weight": None,
-        "bmi": None,
-        "bodyFat": None,
-        "muscleMass": None,
-        "visceralFat": None,
-        "bodyWater": None,
-        "boneMass": None,
-    }
-    
-    # === STATS SUMMARY (Steps, RHR, Floors, Intensity Minutes) ===
-    try:
-        stats = client.get_stats(date_str)
-        if stats:
-            health_data["rhr"] = stats.get("restingHeartRate")
-            health_data["steps"] = stats.get("totalSteps")
-            health_data["floors"] = stats.get("floorsClimbed")
-            health_data["calories"] = stats.get("totalKilocalories")
-            health_data["activeCalories"] = stats.get("activeKilocalories")
-            
-            moderate = stats.get("moderateIntensityMinutes") or 0
-            vigorous = stats.get("vigorousIntensityMinutes") or 0
-            health_data["intensityMinutesModerate"] = moderate
-            health_data["intensityMinutesVigorous"] = vigorous
-            health_data["intensityMinutes"] = moderate + (vigorous * 2)
-            
-            print(f"  ✓ Stats: {health_data['steps']} steps, RHR {health_data['rhr']} bpm")
-    except Exception as e:
-        print(f"  ✗ Failed to fetch stats: {e}")
-    
-    # === HRV DATA ===
-    try:
-        hrv_data = client.get_hrv_data(date_str)
-        if hrv_data and "hrvSummary" in hrv_data:
-            health_data["hrv"] = hrv_data["hrvSummary"].get("lastNightAvg") or hrv_data["hrvSummary"].get("weeklyAvg")
-            print(f"  ✓ HRV: {health_data['hrv']} ms")
-    except Exception as e:
-        print(f"  ✗ Failed to fetch HRV: {e}")
-    
-    # === STRESS DATA ===
-    try:
-        stress = client.get_stress_data(date_str)
-        if stress:
-            health_data["stressAvg"] = stress.get("avgStressLevel")
-            print(f"  ✓ Stress: {health_data['stressAvg']}")
-    except Exception as e:
-        print(f"  ✗ Failed to fetch stress: {e}")
-    
-    # === SLEEP DATA ===
-    try:
-        sleep = client.get_sleep_data(date_str)
-        if sleep and "dailySleepDTO" in sleep:
-            s = sleep["dailySleepDTO"]
-            
-            if s.get("sleepTimeSeconds"):
-                health_data["sleepDuration"] = s["sleepTimeSeconds"] // 60
-            if s.get("deepSleepSeconds"):
-                health_data["sleepDeep"] = s["deepSleepSeconds"] // 60
-            if s.get("lightSleepSeconds"):
-                health_data["sleepLight"] = s["lightSleepSeconds"] // 60
-            if s.get("remSleepSeconds"):
-                health_data["sleepRem"] = s["remSleepSeconds"] // 60
-            if s.get("awakeSleepSeconds"):
-                health_data["sleepAwake"] = s["awakeSleepSeconds"] // 60
-            
-            health_data["sleepInterruptions"] = s.get("awakeCount")
-            
-            # Sleep Score
-            if "sleepScores" in s:
-                scores = s["sleepScores"]
-                if isinstance(scores, dict):
-                    if "overall" in scores:
-                        health_data["sleepScore"] = scores["overall"].get("value")
-                    elif "overallScore" in scores:
-                        health_data["sleepScore"] = scores["overallScore"]
-            
-            print(f"  ✓ Sleep: {health_data['sleepDuration']} min, Score: {health_data['sleepScore']}")
-    except Exception as e:
-        print(f"  ✗ Failed to fetch sleep: {e}")
-    
-    # === RESPIRATION DATA ===
-    try:
-        respiration = client.get_respiration_data(date_str)
-        if respiration:
-            health_data["respiration"] = respiration.get("avgWakingRespirationValue") or respiration.get("avgSleepRespirationValue")
-            print(f"  ✓ Respiration: {health_data['respiration']}")
-    except Exception as e:
-        print(f"  ✗ Failed to fetch respiration: {e}")
-    
-    # === BODY COMPOSITION ===
-    try:
-        body = client.get_body_composition(date_str)
-        if body and body.get("weight"):
-            health_data["weight"] = round(body["weight"] / 1000, 1)  # g to kg
-            health_data["bmi"] = round(body.get("bmi", 0), 1) if body.get("bmi") else None
-            health_data["bodyFat"] = round(body.get("bodyFat", 0), 1) if body.get("bodyFat") else None
-            health_data["muscleMass"] = round(body.get("muscleMass", 0) / 1000, 1) if body.get("muscleMass") else None
-            health_data["visceralFat"] = body.get("visceralFat")
-            health_data["bodyWater"] = round(body.get("bodyWater", 0), 1) if body.get("bodyWater") else None
-            health_data["boneMass"] = round(body.get("boneMass", 0) / 1000, 1) if body.get("boneMass") else None
-            print(f"  ✓ Body: {health_data['weight']} kg")
-    except Exception as e:
-        print(f"  ✗ Failed to fetch body composition: {e}")
-    
-    return health_data
-
-
-def main():
-    # Get credentials from environment variables
-    email = os.environ.get("GARMIN_EMAIL")
-    password = os.environ.get("GARMIN_PASSWORD")
-    
-    if not email or not password:
-        print("ERROR: GARMIN_EMAIL and GARMIN_PASSWORD environment variables required")
-        exit(1)
-    
-    # Check for date range parameters
-    start_date_str = os.environ.get("START_DATE")
-    end_date_str = os.environ.get("END_DATE")
-    
-    print("=" * 50)
-    print("HEWS Garmin Sync (garminconnect)")
-    print("=" * 50)
-    
-    # Login to Garmin Connect
-    print("\nLogging in to Garmin Connect...")
-    try:
-        client = Garmin(email, password)
-        client.login()
-        print("✓ Login successful")
-    except Exception as e:
-        print(f"✗ Login failed: {e}")
-        exit(1)
-    
-    # Determine date range
-    if start_date_str and end_date_str:
-        # Historical mode: fetch date range
-        start_date = parse_date(start_date_str)
-        end_date = parse_date(end_date_str)
-        
-        print(f"\n📅 Historical mode: {start_date_str} to {end_date_str}")
-        
-        # Fetch all dates in range
-        history = []
-        current_date = start_date
-        
-        while current_date <= end_date:
-            data = fetch_health_data(client, current_date)
-            history.append(data)
-            current_date += timedelta(days=1)
-        
-        # Build output structure
-        output = {
-            "lastSync": datetime.now().isoformat(),
-            "mode": "historical",
-            "startDate": start_date_str,
-            "endDate": end_date_str,
-            "today": None,
-            "yesterday": None,
-            "history": history
-        }
-        
-        print(f"\n✓ Fetched {len(history)} days of data")
-        
-    else:
-        # Normal mode: today and yesterday
-        print("\n📅 Normal mode: today + yesterday")
-        
-        today = datetime.now()
-        today_data = fetch_health_data(client, today)
-        
-        yesterday = today - timedelta(days=1)
-        yesterday_data = fetch_health_data(client, yesterday)
-        
-        output = {
-            "lastSync": datetime.now().isoformat(),
-            "mode": "daily",
-            "today": today_data,
-            "yesterday": yesterday_data,
-            "history": []
-        }
-    
-    # Save to JSON file
-    output_path = Path("data/health_data.json")
-    output_path.parent.mkdir(exist_ok=True)
-    
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(output, f, indent=2, ensure_ascii=False)
-    
-    print("\n" + "=" * 50)
-    print(f"✓ Data saved to {output_path}")
-    print("=" * 50)
-
-
-if __name__ == "__main__":
-    main()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Run Garmin sync
+        env:
+          GARMIN_EMAIL: ${{ secrets.GARMIN_EMAIL }}
+          GARMIN_PASSWORD: ${{ secrets.GARMIN_PASSWORD }}
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
+        run: python sync_garmin.py
+      
+      - name: Commit and push data
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/
+          git diff --quiet && git diff --staged --quiet || git commit -m "🏥 Health data sync $(date +'%Y-%m-%d %H:%M')"
+          git push

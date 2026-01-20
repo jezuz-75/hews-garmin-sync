@@ -1,10 +1,10 @@
 {
-  "lastSync": "2026-01-20T07:21:46.807096",
+  "lastSync": "2026-01-20T07:51:09.834830",
   "mode": "daily",
   "today": {
     "date": "2026-01-20",
     "source": "garmin",
-    "fetchedAt": "2026-01-20T07:21:45.379260",
+    "fetchedAt": "2026-01-20T07:51:08.687352",
     "hrv": 52,
     "rhr": 52,
     "stressAvg": 16,
@@ -26,7 +26,7 @@
   "yesterday": {
     "date": "2026-01-19",
     "source": "garmin",
-    "fetchedAt": "2026-01-20T07:21:45.944725",
+    "fetchedAt": "2026-01-20T07:51:09.145238",
     "hrv": 43,
     "rhr": 54,
     "stressAvg": 31,

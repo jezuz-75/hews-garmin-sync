@@ -44,7 +44,9 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
         "bodyBatteryStart": None, "bodyBatteryEnd": None, "bodyBatteryCharged": None,
         "spo2Avg": None, "spo2Min": None, "spo2Max": None,
         "hydration": None,
-        "vo2Max": None, "fitnessAge": None
+        "vo2Max": None, "fitnessAge": None,
+        # Activities
+        "activities": []
     }
     
     # Stats Summary
@@ -206,6 +208,43 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
                 print(f"  ✓ Max Metrics: VO2Max={health_data['vo2Max']}, FitnessAge={health_data['fitnessAge']}")
     except Exception as e:
         print(f"  ✗ Error max metrics: {e}")
+    
+    # Activities for the date
+    try:
+        activities_data = client.get_activities_fordate(date_str)
+        if activities_data:
+            activities_list = []
+            for activity in activities_data:
+                # Extract key statistics
+                activity_summary = {
+                    "activityId": activity.get("activityId"),
+                    "activityName": activity.get("activityName"),
+                    "activityType": activity.get("activityType", {}).get("typeKey"),
+                    "startTimeLocal": activity.get("startTimeLocal"),
+                    "duration": activity.get("duration"),  # in seconds
+                    "distance": round(activity.get("distance", 0) / 1000, 2) if activity.get("distance") else None,  # Convert meters to km
+                    "calories": activity.get("calories"),
+                    "averageHR": activity.get("averageHR"),
+                    "maxHR": activity.get("maxHR"),
+                    "elevationGain": activity.get("elevationGain"),
+                    "elevationLoss": activity.get("elevationLoss"),
+                    "avgSpeed": round(activity.get("averageSpeed", 0) * 3.6, 2) if activity.get("averageSpeed") else None,  # m/s to km/h
+                    "maxSpeed": round(activity.get("maxSpeed", 0) * 3.6, 2) if activity.get("maxSpeed") else None,
+                    "steps": activity.get("steps"),
+                    "avgPower": activity.get("avgPower"),
+                    "maxPower": activity.get("maxPower"),
+                    "trainingEffect": activity.get("aerobicTrainingEffect"),
+                    "anaerobicEffect": activity.get("anaerobicTrainingEffect")
+                }
+                activities_list.append(activity_summary)
+            
+            health_data["activities"] = activities_list
+            print(f"  ✓ Activities: {len(activities_list)} found")
+            for act in activities_list:
+                duration_min = act["duration"] // 60 if act["duration"] else 0
+                print(f"    - {act['activityType']}: {duration_min}min, {act['distance']}km, {act['calories']}kcal")
+    except Exception as e:
+        print(f"  ✗ Error activities: {e}")
     
     return health_data
 

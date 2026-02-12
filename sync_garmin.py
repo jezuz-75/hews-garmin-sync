@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-HEWS - Garmin Sync for GitHub Actions
-Fetches health data and saves as JSON for Obsidian plugin.
+HEWS - Garmin Sync for GitHub Actions (Enhanced)
+Fetches comprehensive health data and saves as JSON for Obsidian plugin.
 """
 
 import json
@@ -28,12 +28,23 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
         "date": date_str,
         "source": "garmin",
         "fetchedAt": datetime.now().isoformat(),
+        # Vital Signs
         "hrv": None, "rhr": None, "stressAvg": None, "respiration": None,
+        # Sleep
         "sleepDuration": None, "sleepDeep": None, "sleepLight": None,
         "sleepRem": None, "sleepAwake": None, "sleepScore": None,
         "sleepInterruptions": None,
+        # Activity
         "steps": None, "floors": None, "intensityMinutes": None,
-        "weight": None, "bmi": None, "bodyFat": None
+        "intensityMinutesModerate": None, "intensityMinutesVigorous": None,
+        # Body Composition
+        "weight": None, "bmi": None, "bodyFat": None, "muscleMass": None,
+        "boneMass": None, "bodyWater": None,
+        # Advanced Metrics
+        "bodyBatteryStart": None, "bodyBatteryEnd": None, "bodyBatteryCharged": None,
+        "spo2Avg": None, "spo2Min": None, "spo2Max": None,
+        "hydration": None,
+        "vo2Max": None, "fitnessAge": None
     }
     
     # Stats Summary
@@ -45,25 +56,30 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
             health_data["floors"] = stats.get("floorsClimbed")
             moderate = stats.get("moderateIntensityMinutes") or 0
             vigorous = stats.get("vigorousIntensityMinutes") or 0
+            health_data["intensityMinutesModerate"] = moderate
+            health_data["intensityMinutesVigorous"] = vigorous
             health_data["intensityMinutes"] = moderate + (vigorous * 2)
+            print(f"  ✓ Stats: RHR={health_data['rhr']}, Steps={health_data['steps']}")
     except Exception as e:
-        print(f"Error stats: {e}")
+        print(f"  ✗ Error stats: {e}")
     
     # HRV
     try:
         hrv_data = client.get_hrv_data(date_str)
         if hrv_data and "hrvSummary" in hrv_data:
             health_data["hrv"] = hrv_data["hrvSummary"].get("lastNightAvg") or hrv_data["hrvSummary"].get("weeklyAvg")
+            print(f"  ✓ HRV: {health_data['hrv']}")
     except Exception as e:
-        print(f"Error HRV: {e}")
+        print(f"  ✗ Error HRV: {e}")
     
     # Stress
     try:
         stress = client.get_stress_data(date_str)
         if stress and "avgStressLevel" in stress:
             health_data["stressAvg"] = stress["avgStressLevel"]
+            print(f"  ✓ Stress: {health_data['stressAvg']}")
     except Exception as e:
-        print(f"Error stress: {e}")
+        print(f"  ✗ Error stress: {e}")
     
     # Sleep
     try:
@@ -81,26 +97,115 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
                 scores = s["sleepScores"]
                 if isinstance(scores, dict):
                     health_data["sleepScore"] = scores.get("overall", {}).get("value") or scores.get("overallScore")
+            print(f"  ✓ Sleep: {health_data['sleepDuration']}min, Score={health_data['sleepScore']}")
     except Exception as e:
-        print(f"Error sleep: {e}")
+        print(f"  ✗ Error sleep: {e}")
     
     # Respiration
     try:
         respiration = client.get_respiration_data(date_str)
         if respiration:
             health_data["respiration"] = respiration.get("avgWakingRespirationValue")
+            print(f"  ✓ Respiration: {health_data['respiration']}")
     except Exception as e:
-        print(f"Error respiration: {e}")
+        print(f"  ✗ Error respiration: {e}")
 
-    # Body Composition
+    # Body Composition - Primary Method
     try:
         body = client.get_body_composition(date_str)
         if body and body.get("weight"):
             health_data["weight"] = round(body["weight"] / 1000, 1)
             health_data["bmi"] = body.get("bmi")
             health_data["bodyFat"] = body.get("bodyFat")
+            health_data["muscleMass"] = body.get("muscleMass")
+            health_data["boneMass"] = body.get("boneMass")
+            health_data["bodyWater"] = body.get("bodyWater")
+            print(f"  ✓ Body Composition: Weight={health_data['weight']}kg, BMI={health_data['bmi']}")
     except Exception as e:
-        print(f"Error body: {e}")
+        print(f"  ✗ Error body composition: {e}")
+    
+    # Body Composition - Fallback Method (more reliable for weight)
+    if health_data["weight"] is None:
+        try:
+            # Get weigh-ins for target date (using date range of ±1 day)
+            day_before = (target_date - timedelta(days=1)).strftime("%Y-%m-%d")
+            day_after = (target_date + timedelta(days=1)).strftime("%Y-%m-%d")
+            weigh_ins = client.get_weigh_ins(day_before, day_after)
+            
+            if weigh_ins and len(weigh_ins) > 0:
+                # Find weigh-in for target date
+                for weigh_in in weigh_ins:
+                    if weigh_in.get("date", "").startswith(date_str):
+                        weight_grams = weigh_in.get("weight")
+                        if weight_grams:
+                            health_data["weight"] = round(weight_grams / 1000, 1)
+                            health_data["bmi"] = weigh_in.get("bmi")
+                            health_data["bodyFat"] = weigh_in.get("bodyFat")
+                            print(f"  ✓ Weight (fallback): {health_data['weight']}kg")
+                            break
+        except Exception as e:
+            print(f"  ✗ Error weigh-ins fallback: {e}")
+    
+    # Body Battery
+    try:
+        # Body Battery needs date range
+        day_before = (target_date - timedelta(days=1)).strftime("%Y-%m-%d")
+        day_after = (target_date + timedelta(days=1)).strftime("%Y-%m-%d")
+        body_battery = client.get_body_battery(day_before, day_after)
+        
+        if body_battery and len(body_battery) > 0:
+            # Find data for target date
+            for bb in body_battery:
+                if bb.get("date", "").startswith(date_str):
+                    health_data["bodyBatteryStart"] = bb.get("startTimestampGMT")
+                    health_data["bodyBatteryEnd"] = bb.get("endTimestampGMT")
+                    health_data["bodyBatteryCharged"] = bb.get("charged")
+                    print(f"  ✓ Body Battery: Charged={health_data['bodyBatteryCharged']}")
+                    break
+    except Exception as e:
+        print(f"  ✗ Error body battery: {e}")
+    
+    # SpO2 (Blood Oxygen)
+    try:
+        spo2_data = client.get_spo2_data(date_str)
+        if spo2_data:
+            values = spo2_data.get("values", [])
+            if values:
+                spo2_readings = [v for v in values if v is not None]
+                if spo2_readings:
+                    health_data["spo2Avg"] = round(sum(spo2_readings) / len(spo2_readings), 1)
+                    health_data["spo2Min"] = min(spo2_readings)
+                    health_data["spo2Max"] = max(spo2_readings)
+                    print(f"  ✓ SpO2: Avg={health_data['spo2Avg']}%, Min={health_data['spo2Min']}%")
+    except Exception as e:
+        print(f"  ✗ Error SpO2: {e}")
+    
+    # Hydration
+    try:
+        hydration_data = client.get_hydration_data(date_str)
+        if hydration_data:
+            health_data["hydration"] = hydration_data.get("valueInML")
+            if health_data["hydration"]:
+                print(f"  ✓ Hydration: {health_data['hydration']}ml")
+    except Exception as e:
+        print(f"  ✗ Error hydration: {e}")
+    
+    # Max Metrics (VO2 Max, Fitness Age)
+    try:
+        max_metrics = client.get_max_metrics(date_str)
+        if max_metrics:
+            vo2_max_data = max_metrics.get("vo2Max")
+            if vo2_max_data:
+                health_data["vo2Max"] = vo2_max_data.get("generic", {}).get("value")
+            
+            fitness_age_data = max_metrics.get("fitnessAge")
+            if fitness_age_data:
+                health_data["fitnessAge"] = fitness_age_data.get("value")
+            
+            if health_data["vo2Max"] or health_data["fitnessAge"]:
+                print(f"  ✓ Max Metrics: VO2Max={health_data['vo2Max']}, FitnessAge={health_data['fitnessAge']}")
+    except Exception as e:
+        print(f"  ✗ Error max metrics: {e}")
     
     return health_data
 
@@ -119,7 +224,7 @@ def main():
     end_date_str = os.environ.get("END_DATE")
     
     print("=" * 50)
-    print("HEWS Garmin Sync (GitHub Actions)")
+    print("HEWS Garmin Sync (Enhanced) - GitHub Actions")
     print("=" * 50)
     
     # Login to Garmin

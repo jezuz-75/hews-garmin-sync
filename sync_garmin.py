@@ -45,6 +45,8 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
         "spo2Avg": None, "spo2Min": None, "spo2Max": None,
         "hydration": None,
         "vo2Max": None, "fitnessAge": None,
+        # Blood Pressure
+        "systolicBp": None, "diastolicBp": None, "pulseBp": None,
         # Activities
         "activities": []
     }
@@ -148,6 +150,37 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
         except Exception as e:
             print(f"  ✗ Error weigh-ins fallback: {e}")
     
+    # Body Composition - Second Fallback: get_daily_weigh_ins
+    if health_data["weight"] is None:
+        try:
+            daily_weigh = client.get_daily_weigh_ins(date_str)
+            if daily_weigh:
+                entries = daily_weigh if isinstance(daily_weigh, list) else daily_weigh.get("dateWeightList", [])
+                for entry in entries:
+                    w = entry.get("weight")
+                    if w:
+                        health_data["weight"] = round(w / 1000, 1)
+                        health_data["bmi"] = entry.get("bmi")
+                        health_data["bodyFat"] = entry.get("bodyFat")
+                        print(f"  ✓ Weight (daily weigh-ins): {health_data['weight']}kg")
+                        break
+        except Exception as e:
+            print(f"  ✗ Error daily weigh-ins: {e}")
+
+    # Blood Pressure
+    try:
+        bp_data = client.get_blood_pressure(date_str, date_str)
+        if bp_data:
+            measurements = bp_data if isinstance(bp_data, list) else bp_data.get("measurementSummaries", [])
+            if measurements:
+                latest = measurements[-1]
+                health_data["systolicBp"] = latest.get("systolic")
+                health_data["diastolicBp"] = latest.get("diastolic")
+                health_data["pulseBp"] = latest.get("pulse")
+                print(f"  ✓ Blood Pressure: {health_data['systolicBp']}/{health_data['diastolicBp']} mmHg, Pulse={health_data['pulseBp']}")
+    except Exception as e:
+        print(f"  ✗ Error blood pressure: {e}")
+
     # Body Battery
     try:
         # Body Battery needs date range

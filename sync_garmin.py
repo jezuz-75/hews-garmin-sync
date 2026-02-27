@@ -170,14 +170,29 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
     # Blood Pressure
     try:
         bp_data = client.get_blood_pressure(date_str, date_str)
+        print(f"  ~ BP raw response: {json.dumps(bp_data)[:500]}")
         if bp_data:
-            measurements = bp_data if isinstance(bp_data, list) else bp_data.get("measurementSummaries", [])
+            # Try all known response key variants
+            measurements = None
+            if isinstance(bp_data, list):
+                measurements = bp_data
+            else:
+                for key in ("measurementSummaries", "measurements", "bloodPressureSummaries",
+                            "dailySummaries", "summaries", "entries", "data"):
+                    if bp_data.get(key):
+                        measurements = bp_data[key]
+                        break
             if measurements:
                 latest = measurements[-1]
-                health_data["systolicBp"] = latest.get("systolic")
-                health_data["diastolicBp"] = latest.get("diastolic")
-                health_data["pulseBp"] = latest.get("pulse")
+                health_data["systolicBp"] = (latest.get("systolic") or latest.get("systolicPressure")
+                                             or latest.get("systolicValue"))
+                health_data["diastolicBp"] = (latest.get("diastolic") or latest.get("diastolicPressure")
+                                              or latest.get("diastolicValue"))
+                health_data["pulseBp"] = (latest.get("pulse") or latest.get("heartRate")
+                                          or latest.get("pulseValue"))
                 print(f"  ✓ Blood Pressure: {health_data['systolicBp']}/{health_data['diastolicBp']} mmHg, Pulse={health_data['pulseBp']}")
+            else:
+                print(f"  ~ BP: response received but no measurement list found. Keys: {list(bp_data.keys()) if isinstance(bp_data, dict) else type(bp_data)}")
     except Exception as e:
         print(f"  ✗ Error blood pressure: {e}")
 

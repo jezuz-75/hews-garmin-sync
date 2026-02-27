@@ -131,14 +131,13 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
     # Body Composition - Fallback Method (more reliable for weight)
     if health_data["weight"] is None:
         try:
-            # Get weigh-ins for target date (using date range of ±1 day)
             day_before = (target_date - timedelta(days=1)).strftime("%Y-%m-%d")
             day_after = (target_date + timedelta(days=1)).strftime("%Y-%m-%d")
             weigh_ins = client.get_weigh_ins(day_before, day_after)
-            
-            if weigh_ins and len(weigh_ins) > 0:
-                # Find weigh-in for target date
+            if weigh_ins and isinstance(weigh_ins, list):
                 for weigh_in in weigh_ins:
+                    if not isinstance(weigh_in, dict):
+                        continue
                     if weigh_in.get("date", "").startswith(date_str):
                         weight_grams = weigh_in.get("weight")
                         if weight_grams:
@@ -170,29 +169,21 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
     # Blood Pressure
     try:
         bp_data = client.get_blood_pressure(date_str, date_str)
-        print(f"  ~ BP raw response: {json.dumps(bp_data)[:500]}")
-        if bp_data:
-            # Try all known response key variants
-            measurements = None
-            if isinstance(bp_data, list):
-                measurements = bp_data
-            else:
-                for key in ("measurementSummaries", "measurements", "bloodPressureSummaries",
-                            "dailySummaries", "summaries", "entries", "data"):
-                    if bp_data.get(key):
-                        measurements = bp_data[key]
-                        break
-            if measurements:
-                latest = measurements[-1]
-                health_data["systolicBp"] = (latest.get("systolic") or latest.get("systolicPressure")
-                                             or latest.get("systolicValue"))
-                health_data["diastolicBp"] = (latest.get("diastolic") or latest.get("diastolicPressure")
-                                              or latest.get("diastolicValue"))
-                health_data["pulseBp"] = (latest.get("pulse") or latest.get("heartRate")
-                                          or latest.get("pulseValue"))
-                print(f"  ✓ Blood Pressure: {health_data['systolicBp']}/{health_data['diastolicBp']} mmHg, Pulse={health_data['pulseBp']}")
-            else:
-                print(f"  ~ BP: response received but no measurement list found. Keys: {list(bp_data.keys()) if isinstance(bp_data, dict) else type(bp_data)}")
+        if bp_data and isinstance(bp_data, dict):
+            summaries = bp_data.get("measurementSummaries", [])
+            if summaries and isinstance(summaries, list):
+                summary = summaries[-1]
+                measurements = summary.get("measurements", [])
+                if measurements and isinstance(measurements, list):
+                    m = measurements[-1]
+                    health_data["systolicBp"] = m.get("systolic")
+                    health_data["diastolicBp"] = m.get("diastolic")
+                    health_data["pulseBp"] = m.get("pulse")
+                    print(f"  ✓ Blood Pressure: {health_data['systolicBp']}/{health_data['diastolicBp']} mmHg, Pulse={health_data['pulseBp']}")
+                else:
+                    health_data["systolicBp"] = summary.get("highSystolic")
+                    health_data["diastolicBp"] = summary.get("highDiastolic")
+                    print(f"  ✓ Blood Pressure (summary): {health_data['systolicBp']}/{health_data['diastolicBp']} mmHg")
     except Exception as e:
         print(f"  ✗ Error blood pressure: {e}")
 
@@ -264,10 +255,15 @@ def fetch_health_data(client: Garmin, target_date: datetime) -> dict:
             activities_list = []
             for activity in activities_data:
                 # Extract key statistics
+                activity_type = activity.get("activityType")
+                if isinstance(activity_type, dict):
+                    activity_type = activity_type.get("typeKey")
+                elif not isinstance(activity_type, str):
+                    activity_type = str(activity_type) if activity_type else None
                 activity_summary = {
                     "activityId": activity.get("activityId"),
                     "activityName": activity.get("activityName"),
-                    "activityType": activity.get("activityType", {}).get("typeKey"),
+                    "activityType": activity_type,
                     "startTimeLocal": activity.get("startTimeLocal"),
                     "duration": activity.get("duration"),  # in seconds
                     "distance": round(activity.get("distance", 0) / 1000, 2) if activity.get("distance") else None,  # Convert meters to km

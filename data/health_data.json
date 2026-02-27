@@ -1,5 +1,5 @@
 {
-  "lastSync": "2026-02-27T07:40:28.535181",
+  "lastSync": "2026-02-27T08:06:20.833890",
   "mode": "historical",
   "startDate": "2026-02-23",
   "endDate": "2026-02-27",
@@ -9,7 +9,7 @@
     {
       "date": "2026-02-23",
       "source": "garmin",
-      "fetchedAt": "2026-02-27T07:40:23.245552",
+      "fetchedAt": "2026-02-27T08:06:12.484671",
       "hrv": 48,
       "rhr": 52,
       "stressAvg": 31,
@@ -49,7 +49,7 @@
     {
       "date": "2026-02-24",
       "source": "garmin",
-      "fetchedAt": "2026-02-27T07:40:24.359835",
+      "fetchedAt": "2026-02-27T08:06:14.278005",
       "hrv": 47,
       "rhr": 52,
       "stressAvg": 32,
@@ -81,15 +81,15 @@
       "hydration": null,
       "vo2Max": null,
       "fitnessAge": null,
-      "systolicBp": null,
-      "diastolicBp": null,
-      "pulseBp": null,
+      "systolicBp": 114,
+      "diastolicBp": 80,
+      "pulseBp": 74,
       "activities": []
     },
     {
       "date": "2026-02-25",
       "source": "garmin",
-      "fetchedAt": "2026-02-27T07:40:25.433093",
+      "fetchedAt": "2026-02-27T08:06:15.983278",
       "hrv": 42,
       "rhr": 56,
       "stressAvg": 34,
@@ -121,15 +121,15 @@
       "hydration": null,
       "vo2Max": null,
       "fitnessAge": null,
-      "systolicBp": null,
-      "diastolicBp": null,
-      "pulseBp": null,
+      "systolicBp": 112,
+      "diastolicBp": 72,
+      "pulseBp": 65,
       "activities": []
     },
     {
       "date": "2026-02-26",
       "source": "garmin",
-      "fetchedAt": "2026-02-27T07:40:26.513993",
+      "fetchedAt": "2026-02-27T08:06:17.674535",
       "hrv": 43,
       "rhr": 57,
       "stressAvg": 30,
@@ -161,15 +161,15 @@
       "hydration": 0.0,
       "vo2Max": null,
       "fitnessAge": null,
-      "systolicBp": null,
-      "diastolicBp": null,
-      "pulseBp": null,
+      "systolicBp": 121,
+      "diastolicBp": 75,
+      "pulseBp": 67,
       "activities": []
     },
     {
       "date": "2026-02-27",
       "source": "garmin",
-      "fetchedAt": "2026-02-27T07:40:27.594744",
+      "fetchedAt": "2026-02-27T08:06:19.338018",
       "hrv": 49,
       "rhr": 50,
       "stressAvg": 14,
@@ -201,9 +201,9 @@
       "hydration": null,
       "vo2Max": null,
       "fitnessAge": null,
-      "systolicBp": null,
-      "diastolicBp": null,
-      "pulseBp": null,
+      "systolicBp": 107,
+      "diastolicBp": 69,
+      "pulseBp": 54,
       "activities": []
     }
   ]

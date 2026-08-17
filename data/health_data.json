@@ -1,10 +1,10 @@
 {
-  "lastSync": "2026-08-16T05:18:03.667713",
+  "lastSync": "2026-08-17T05:21:46.030258",
   "mode": "daily",
   "today": {
-    "date": "2026-08-16",
+    "date": "2026-08-17",
     "source": "garmin",
-    "fetchedAt": "2026-08-16T05:18:00.748097",
+    "fetchedAt": "2026-08-17T05:21:44.122839",
     "hrv": null,
     "rhr": null,
     "stressAvg": null,
@@ -21,9 +21,9 @@
     "intensityMinutes": 0,
     "intensityMinutesModerate": 0,
     "intensityMinutesVigorous": 0,
-    "weight": null,
-    "bmi": null,
-    "bodyFat": null,
+    "weight": 93.3,
+    "bmi": 29.399999618530273,
+    "bodyFat": 28.6,
     "muscleMass": null,
     "boneMass": null,
     "bodyWater": null,
@@ -42,9 +42,9 @@
     "activities": []
   },
   "yesterday": {
-    "date": "2026-08-15",
+    "date": "2026-08-16",
     "source": "garmin",
-    "fetchedAt": "2026-08-16T05:18:02.094472",
+    "fetchedAt": "2026-08-17T05:21:45.069524",
     "hrv": null,
     "rhr": null,
     "stressAvg": null,

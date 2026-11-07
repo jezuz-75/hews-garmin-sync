@@ -1,10 +1,10 @@
 {
-  "lastSync": "2026-11-06T05:15:39.981009",
+  "lastSync": "2026-11-07T05:13:48.756233",
   "mode": "daily",
   "today": {
-    "date": "2026-11-06",
+    "date": "2026-11-07",
     "source": "garmin",
-    "fetchedAt": "2026-11-06T05:15:37.701316",
+    "fetchedAt": "2026-11-07T05:13:45.463424",
     "hrv": null,
     "rhr": null,
     "stressAvg": null,
@@ -42,9 +42,9 @@
     "activities": []
   },
   "yesterday": {
-    "date": "2026-11-05",
+    "date": "2026-11-06",
     "source": "garmin",
-    "fetchedAt": "2026-11-06T05:15:38.949680",
+    "fetchedAt": "2026-11-07T05:13:47.159629",
     "hrv": null,
     "rhr": null,
     "stressAvg": null,
